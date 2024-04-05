@@ -25,7 +25,6 @@ exports.capDashboard = async (req, res) => {
     const isPosManager = req.id;
     if (isRestaurant) {
       if (isPosManager) {
-
         const managerData = await AccessedEmployees.findOne({
           _id: req.id,
           accessFor: "Captain manager",
@@ -38,7 +37,6 @@ exports.capDashboard = async (req, res) => {
           ManagerData: managerData,
           RestaurantData: restaurantData,
         });
-        
       } else {
         res.json({
           success: false,
@@ -53,7 +51,37 @@ exports.capDashboard = async (req, res) => {
     }
   } catch (error) {
     console.log(error);
- return   res.status(500).json({ success: false, message: "Something went wrong" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Something went wrong" });
+  }
+};
+
+exports.getAllRegisteredPosCap = async (req, res) => {
+  try {
+    if (req.restaurant) {
+      const response = await AccessedEmployees.find({
+        accessFor: "POS manager",
+        restaurant: req.restaurant,
+      }).select("username _id");
+
+      if (response.length > 0) {
+        res.status(200).json({
+          success: true,
+          message: "Successfully Fetched",
+          RegisteredPosManagers: response,
+        });
+      } else {
+        res
+          .status(200)
+          .json({ success: false, message: "POS manager didn't Exist" });
+      }
+    }
+  } catch (err) {
+    console.log(err);
+    return res
+      .status(500)
+      .json({ success: true, message: "Internal Server Error " });
   }
 };
 
@@ -202,7 +230,9 @@ exports.getAllcustomerBill = async (req, res) => {
     if (restaurant) {
       const BillData = await Customerbill.find({
         restaurant: restaurant,
-      }).populate("customer").sort({date:-1});
+      })
+        .populate("customer")
+        .sort({ date: -1 });
       res.status(200).json({ success: true, BillData: BillData });
     }
   } catch (error) {
@@ -225,7 +255,6 @@ exports.captainDashboard = async (req, res) => {
           accessFor: "Captain manager",
           restaurant: isRestaurant,
         });
-  
 
         const restaurantData = await Restaurant.findOne({ _id: isRestaurant });
 
@@ -292,7 +321,7 @@ exports.getMenuDataAtCap = async (req, res) => {
           publish: true,
         });
 
-console.log(menuData,"i am n=menu data");
+        console.log(menuData, "i am n=menu data");
 
         const categories = await MenuCategory.find({
           restaurant: isRestaurant,
@@ -326,16 +355,18 @@ exports.printBillAtCap = async (req, res) => {
     const isRestaurant = req.restaurant;
     const isCapManager = req.id;
     const orderData = req.body;
+    console.log("OderPOS", orderData);
     const tableId = orderData._id;
     const orderId = orderData.orderId;
-
-    if (isRestaurant && isCapManager) {
+    const isPosManager = req.posManagerId;
+    if (isRestaurant && isCapManager && isPosManager) {
       // Check if the order with the given orderId already exists
       const existingOrder = await Order.findOne({ orderId });
 
       if (existingOrder) {
         // If the order exists, here updating it by pushing KotItems
         existingOrder.KotItems.push(...orderData.KotItems);
+        console.log("existing", existingOrder);
         existingOrder.Amount = existingOrder.KotItems.reduce(
           (total, item) => total + item.totalItemPrice,
           0
@@ -376,6 +407,7 @@ exports.printBillAtCap = async (req, res) => {
           restaurantId: isRestaurant,
           capManagerId: isCapManager,
           orderMode: orderData.orderMode,
+          posManagerId: isPosManager,
         });
 
         const savedOrder = await newOrder.save();
@@ -412,13 +444,17 @@ exports.printBillAtCap = async (req, res) => {
   }
 };
 
-async function decrementMenuItemQuantity(modelName, restaurantId, itemName, quantityToDecrement) {
+async function decrementMenuItemQuantity(
+  modelName,
+  restaurantId,
+  itemName,
+  quantityToDecrement
+) {
   try {
     // Get the appropriate model based on the provided modelName
     const MenuItemModel = mongoose.model(modelName);
 
-    console.log(MenuItemModel,"MenuItemModel");
-
+    console.log(MenuItemModel, "MenuItemModel");
 
     // Find the menu item based on restaurantId and itemName
     const menuItem = await MenuItemModel.findOne({
@@ -427,25 +463,28 @@ async function decrementMenuItemQuantity(modelName, restaurantId, itemName, quan
     });
 
     if (!menuItem) {
-      console.log(`Menu item ${itemName} not found in ${modelName} ${restaurantId}`);
+      console.log(
+        `Menu item ${itemName} not found in ${modelName} ${restaurantId}`
+      );
       return; // Exit the function if the item is not found
     }
 
     // Check if there is enough quantity to decrement
     if (menuItem.quantity < quantityToDecrement) {
-      console.error('Not enough quantity to decrement');
+      console.error("Not enough quantity to decrement");
       return;
     }
 
-    
     // Update the quantity by decrementing
-console.log(quantityToDecrement,"i am decreater");
+    console.log(quantityToDecrement, "i am decreater");
     menuItem.quantity -= +quantityToDecrement;
 
     // Save the updated menu item
     await menuItem.save();
 
-    console.log(`Quantity decremented for ${itemName} in ${modelName} restaurant ${restaurantId}`);
+    console.log(
+      `Quantity decremented for ${itemName} in ${modelName} restaurant ${restaurantId}`
+    );
   } catch (error) {
     console.error(`Error: ${error.message}`);
   }
@@ -469,8 +508,7 @@ exports.KotOrdersAtCap = async (req, res) => {
           }
         );
 
-        console.log(KotItems,"i am kotitems");
-        
+        console.log(KotItems, "i am kotitems");
 
         const updatedOrder = await RestaurantTable.findOne({
           _id: tableBookedId,
@@ -487,15 +525,38 @@ exports.KotOrdersAtCap = async (req, res) => {
             { Amount: totalAmount }
           );
 
-
-          KotItems.map((item,index) => {
-            decrementMenuItemQuantity('Bromag', isRestaurant, item.item, item.quantity);
-             decrementMenuItemQuantity('Swiggy', isRestaurant, item.item, item.quantity);
-             decrementMenuItemQuantity('Zomato', isRestaurant, item.item, item.quantity);
-             decrementMenuItemQuantity('OthersMenu', isRestaurant, item.item, item.quantity);
-             decrementMenuItemQuantity('restaurantMenu', isRestaurant, item.item, item.quantity);
-             
-           })
+          KotItems.map((item, index) => {
+            decrementMenuItemQuantity(
+              "Bromag",
+              isRestaurant,
+              item.item,
+              item.quantity
+            );
+            decrementMenuItemQuantity(
+              "Swiggy",
+              isRestaurant,
+              item.item,
+              item.quantity
+            );
+            decrementMenuItemQuantity(
+              "Zomato",
+              isRestaurant,
+              item.item,
+              item.quantity
+            );
+            decrementMenuItemQuantity(
+              "OthersMenu",
+              isRestaurant,
+              item.item,
+              item.quantity
+            );
+            decrementMenuItemQuantity(
+              "restaurantMenu",
+              isRestaurant,
+              item.item,
+              item.quantity
+            );
+          });
 
           res.status(200).json({
             success: true,
@@ -580,6 +641,7 @@ exports.getOrderedDataAtCap = async (req, res) => {
   try {
     const isRestaurant = req.restaurant;
     const isCaptain = req.id;
+    const isPosManager = req._id;
 
     const tableId = req.params.kotId;
     if (isRestaurant) {
@@ -598,6 +660,7 @@ exports.getOrderedDataAtCap = async (req, res) => {
             // $expr: { $gt: [{ $size: "$KotItems" }, 0] },
             kotStatus: true,
             orderId: { $exists: true, $ne: null },
+            POSManagerId: isPosManager,
           });
 
           console.log(orderedData, "orderedData");
@@ -650,28 +713,30 @@ exports.cancelTable = async (req, res) => {
   }
 };
 
-
 exports.getTableDetails = async (req, res) => {
   try {
-    const { tableId } = req.params
-    
-const restaurantId = req.restaurant
-    console.log(tableId);
-    const tableData = await RestaurantTable.findOne({restaurant: restaurantId, _id: tableId });
-    if (tableData) {
-  
-      return res.status(200).json({success:true,message:"Successfully fetched",tableData})
-    } else {
-      return res.status(200).json({success:false,message:"Unable to fetch table data"})
-    }
-    
-  } catch (err) {
-    console.log(err)
-  return  res.status(500).json({ success: false, message: "session expired" });
+    const { tableId } = req.params;
 
-    
+    const restaurantId = req.restaurant;
+    console.log(tableId);
+    const tableData = await RestaurantTable.findOne({
+      restaurant: restaurantId,
+      _id: tableId,
+    });
+    if (tableData) {
+      return res
+        .status(200)
+        .json({ success: true, message: "Successfully fetched", tableData });
+    } else {
+      return res
+        .status(200)
+        .json({ success: false, message: "Unable to fetch table data" });
+    }
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({ success: false, message: "session expired" });
   }
-}
+};
 
 exports.captainDashboard = async (req, res) => {
   try {
