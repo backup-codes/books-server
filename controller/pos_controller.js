@@ -936,6 +936,7 @@ exports.todayExpense = async (req, res) => {
     const isRestaurant = req.restaurant;
     const isPosManager = req.id;
     const expenseData = req.body;
+    console.log("isPosManager",isPosManager)
 
     if (isRestaurant) {
       if (isPosManager) {
@@ -1939,7 +1940,7 @@ exports. TodaysAdminPassbookData = async (req, res) => {
       amount:todaysOpeningBalance.length>0?todaysOpeningBalance[0].totalAmountSum:0
     },
     {
-      title: "Floating Amount",
+      title: "Sales Amount",
       amount:todaysFloatingCash
     },
     {
@@ -2000,7 +2001,7 @@ exports. TodaysAdminPassbookData = async (req, res) => {
         amount:todaysOpeningBalance.length>0?todaysOpeningBalance[0].totalAmountSum:0
       },
       {
-        title: "Floating Amount",
+        title: "Sales Amount",
         amount:todaysFloatingCash
       },
       {
@@ -2135,7 +2136,7 @@ const lastYearExpense = await getLastYearTotalExpense(restaurantId);
       amount:todaysOpeningBalance.length>0?todaysOpeningBalance[0].totalAmountSum:0
     },
     {
-      title: "Floating Amount",
+      title: "Sales Amount",
       amount:todaysFloatingCash
     },
     {
@@ -2158,27 +2159,28 @@ const lastYearExpense = await getLastYearTotalExpense(restaurantId);
 
     const YesterdaysData = [{
       title: "Opening Amount",
-      amount:YesterdaysTotalOpening.length>0?YesterdaysTotalOpening[0].yesterdayTotalOpening:0
+      // amount:YesterdaysTotalOpening.length>0?YesterdaysTotalOpening[0].yesterdayTotalOpening:0
     },
     {
-      title: "Floating Amount",
-      amount:yesterDaysFloatingCash
+      title: "Sales Amount",
+      // amount:yesterDaysFloatingCash
     },
     {
       title: "Expense Amount",
-      amount:YesterdaysTotalExpense.length>0?YesterdaysTotalExpense[0].yesterdayTotalExpenseSum:0
+      // amount:YesterdaysTotalExpense.length>0?YesterdaysTotalExpense[0].yesterdayTotalExpenseSum:0
     }, {
       title: "Closing  Amount",
-      amount:YesterdaysTotalClosing.length>0?YesterdaysTotalClosing[0].totalAmount:0
+      // amount:YesterdaysTotalClosing.length>0?YesterdaysTotalClosing[0].totalAmount:0
     },
     {
       title: "Total Sales",
-      amount: (
-        ((YesterdaysTotalOpening.length > 0 ? YesterdaysTotalOpening[0].yesterdayTotalOpening : 0) || 0) +
-        (yesterDaysFloatingCash || 0) -
-        ((YesterdaysTotalExpense.length > 0 ? YesterdaysTotalExpense[0].yesterdayTotalExpenseSum : 0) || 0)
-      )
-      }]
+      // amount: (
+      //   ((YesterdaysTotalOpening.length > 0 ? YesterdaysTotalOpening[0].yesterdayTotalOpening : 0) || 0) +
+      //   (yesterDaysFloatingCash || 0) -
+      //   ((YesterdaysTotalExpense.length > 0 ? YesterdaysTotalExpense[0].yesterdayTotalExpenseSum : 0) || 0)
+      // )
+      }
+    ]
     
     
  
@@ -2224,7 +2226,7 @@ const lastYearExpense = await getLastYearTotalExpense(restaurantId);
             : 0,
       },
       {
-        title: "Floating Amount",
+        title: "Sales Amount",
         amount: lastWeekFloatingCash,
       },
       {
@@ -2263,7 +2265,7 @@ const lastYearExpense = await getLastYearTotalExpense(restaurantId);
             : 0,
       },
       {
-        title: "Floating Amount",
+        title: "Sales Amount",
         amount: lastMonthFloatingCash,
       },
       {
@@ -2299,7 +2301,7 @@ const lastYearExpense = await getLastYearTotalExpense(restaurantId);
             : 0,
       },
       {
-        title: "Floating Amount",
+        title: "Sales Amount",
         amount: lastYearFloatingcash,
       },
       {
