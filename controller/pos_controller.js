@@ -854,28 +854,43 @@ exports.searchTodayOpening = async (req, res) => {
 };
 exports.searchTodaysExpense = async (req, res) => {
   try {
+    // Extract token from request headers
     const token = req.headers["authorization"];
+    
+    // Remove double quotes from token string
     const Token = token.replace(/"/g, "");
+    
+    // Verify the token with the secret key
     const validUser = jwtToken.verify(Token, process.env.SECRET_KEY);
 
+    // Check if the user is valid
     if (validUser) {
+      // Extract search value from request parameters
       const searchValue = req.params.query;
+      
+      // Initialize an empty query object
       const query = {};
 
+      // If there's a search value, construct the $or query
       if (searchValue) {
         query.$or = [
-          { description: { $regex: searchValue, $options: "i" } },
-          { amount: { $regex: searchValue, $options: "i" } },
-          { billURL: { $regex: searchValue, $options: "i" } },
-
+          { description: { $regex: searchValue, $options: "i" } }, // Search in description field
+          { amount: { $regex: searchValue, $options: "i" } }, // Search in amount field
+          { billURL: { $regex: searchValue, $options: "i" } }, // Search in billURL field
         ];
       }
+      
+      // Add the user's ID to the query
       query.posId = validUser.id;
+      
+      // Find today's expenses based on the constructed query
       const result = await PosTodayExpense.find(query);
 
+      // Return successful response with the found data
       res.status(200).json({ success: true, data: result });
     }
   } catch (error) {
+    // Log any errors that occur during the process
     console.log(error);
   }
 };
@@ -931,15 +946,23 @@ exports.printBill = async (req, res) => {
   }
 };
 
+/**
+ * This function saves the daily expense data for a specific restaurant.
+ * It returns a JSON response containing a success message.
+ */
 exports.todayExpense = async (req, res) => {
   try {
+    // Check if the user is authenticated as a restaurant
     const isRestaurant = req.restaurant;
+    // Check if the user is authenticated as a POS manager
     const isPosManager = req.id;
+    // Get the expense data from the request body
     const expenseData = req.body;
     console.log("isPosManager",isPosManager)
 
     if (isRestaurant) {
       if (isPosManager) {
+        // Create a new PosTodayExpense document with the expense data
         const expense = new PosTodayExpense({
           date: expenseData.date,
           totalOrder: expenseData.totalOrder,
@@ -948,14 +971,14 @@ exports.todayExpense = async (req, res) => {
           totalTakeAwayRs: expenseData.totalTakeAwayRs,
           totalDineInRs: expenseData.totalDineInRs,
           cashReceived: {
-            note2000: expenseData.notes ? expenseData.notes * 2000 : 0,
-            note500: expenseData.note500 ? expenseData.note500 * 500 : 0,
-            note200: expenseData.notes200 ? expenseData.notes200 * 200 : 0,
-            note100: expenseData.notes100 ? expenseData.notes100 * 100 : 0,
-            note50: expenseData.notes50 ? expenseData.notes50 * 50 : 0,
-            note20: expenseData.notes20 ? expenseData.notes20 * 20 : 0,
-            note10: expenseData.notes10 ? expenseData.notes10 * 10 : 0,
-            coins: expenseData.coinAmount ? expenseData.coinAmount : 0,
+            note2000: expenseData.notes? expenseData.notes * 2000 : 0,
+            note500: expenseData.note500? expenseData.note500 * 500 : 0,
+            note200: expenseData.notes200? expenseData.notes200 * 200 : 0,
+            note100: expenseData.notes100? expenseData.notes100 * 100 : 0,
+            note50: expenseData.notes50? expenseData.notes50 * 50 : 0,
+            note20: expenseData.notes20? expenseData.notes20 * 20 : 0,
+            note10: expenseData.notes10? expenseData.notes10 * 10 : 0,
+            coins: expenseData.coinAmount? expenseData.coinAmount : 0,
           },
           upiPayments: {
             totalOrders: expenseData.upiTotalOrders,
@@ -963,16 +986,20 @@ exports.todayExpense = async (req, res) => {
           },
           restaurant: isRestaurant,
         });
+        // Save the PosTodayExpense document
         await expense.save();
 
+        // Return a JSON response containing a success message
         res.json({ success: true, message: "Data saved successfully!" });
       } else {
+        // If the user is not authenticated as a POS manager, return an error message
         res.status(200).json({
           success: false,
           message: "Your session expired, Please login!",
         });
       }
     } else {
+      // If the user is not authenticated as a restaurant, return an error message
       res.status(200).json({
         success: false,
         message: "Your session expired, Please login!",
@@ -980,6 +1007,7 @@ exports.todayExpense = async (req, res) => {
     }
   } catch (error) {
     console.log(error);
+    // If there is an error, return an internal server error message
     res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 };
@@ -2159,26 +2187,26 @@ const lastYearExpense = await getLastYearTotalExpense(restaurantId);
 
     const YesterdaysData = [{
       title: "Opening Amount",
-      // amount:YesterdaysTotalOpening.length>0?YesterdaysTotalOpening[0].yesterdayTotalOpening:0
+      amount:YesterdaysTotalOpening.length>0?YesterdaysTotalOpening[0].yesterdayTotalOpening:0
     },
     {
       title: "Sales Amount",
-      // amount:yesterDaysFloatingCash
+      amount:yesterDaysFloatingCash
     },
     {
       title: "Expense Amount",
-      // amount:YesterdaysTotalExpense.length>0?YesterdaysTotalExpense[0].yesterdayTotalExpenseSum:0
+      amount:YesterdaysTotalExpense.length>0?YesterdaysTotalExpense[0].yesterdayTotalExpenseSum:0
     }, {
       title: "Closing  Amount",
-      // amount:YesterdaysTotalClosing.length>0?YesterdaysTotalClosing[0].totalAmount:0
+      amount:YesterdaysTotalClosing.length>0?YesterdaysTotalClosing[0].totalAmount:0
     },
     {
       title: "Total Sales",
-      // amount: (
-      //   ((YesterdaysTotalOpening.length > 0 ? YesterdaysTotalOpening[0].yesterdayTotalOpening : 0) || 0) +
-      //   (yesterDaysFloatingCash || 0) -
-      //   ((YesterdaysTotalExpense.length > 0 ? YesterdaysTotalExpense[0].yesterdayTotalExpenseSum : 0) || 0)
-      // )
+      amount: (
+        ((YesterdaysTotalOpening.length > 0 ? YesterdaysTotalOpening[0].yesterdayTotalOpening : 0) || 0) +
+        (yesterDaysFloatingCash || 0) -
+        ((YesterdaysTotalExpense.length > 0 ? YesterdaysTotalExpense[0].yesterdayTotalExpenseSum : 0) || 0)
+      )
       }
     ]
     

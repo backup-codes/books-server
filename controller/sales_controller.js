@@ -68,20 +68,27 @@ exports.getDineInForAdmin = async (req, res) => {
   }
 };
 
+/**
+ * This function retrieves the total sales data for a specific restaurant.
+ * It returns a JSON response containing the sales data sorted by date in descending order.
+ */
 exports.getTotalSalesData = async (req, res) => {
   try {
+    // Check if the user is authenticated as a restaurant
     const restaurant = req.restaurant;
 
     if (restaurant) {
-
+      // Use the Order model to find all orders for the restaurant and sort them by date in descending order
       const orderData = await Order.find({
         restaurantId: restaurant,
       }).sort({date:-1});
 
       console.log(orderData);
 
+      // Return a JSON response containing the sales data
       res.json({ success: true, SalesData: orderData });
     } else {
+      // If the user is not authenticated as a restaurant, return an error message
       res.json({ success: false, message: "Session expired!" });
     }
   } catch (error) {
@@ -561,18 +568,21 @@ exports.getOrderData = async (req, res) => {
   }
 };
 
+/**
+ * This function retrieves the total number of dine-in orders and total sales for dine-in orders for the current date.
+ * It returns a JSON response containing the total number of dine-in orders and total sales for the current date.
+ */
 exports.TodaysOrderDataOfCap = async (req, res) => {
   try {
-
-
+    // Get the current date and extract the date part only
     const todayDate = new Date().toISOString().split('T')[0];
-    const isRestaurant = req.restaurant;
-    let totalDineInSales
-    let totalDineInOrders
-    if (isRestaurant) {
-      
 
-      totalDineInOrders = await Order.aggregate([
+    // Check if the user is authenticated as a restaurant
+    const isRestaurant = req.restaurant;
+
+    if (isRestaurant) {
+      // Use the Order model to aggregate the total number of dine-in orders for the current date
+      const totalDineInOrders = await Order.aggregate([
         {
           $match: {
             restaurantId: isRestaurant,
@@ -589,42 +599,44 @@ exports.TodaysOrderDataOfCap = async (req, res) => {
             totalDineInOrders: { $sum: 1 },
           },
         },
-      ])
+      ]);
 
-      // MongoDB aggregation pipeline to calculate total sales of dine-in orders today
+      // Use the Order model to aggregate the total sales for dine-in orders for the current date
+      const totalDineInSales = await Order.aggregate([
+        {
+          $match: {
+            restaurantId: isRestaurant,
+            orderMode: 'dineIn',
+            date: {
+              $gte: new Date(todayDate + "T00:00:00.000Z"),
+              $lt: new Date(todayDate + "T23:59:59.999Z"),
+            },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            totalSales: { $sum: "$Amount" },
+          },
+        },
+      ]);
 
-       totalDineInSales = await Order.aggregate([
-  {
-    $match: {
-      restaurantId:isRestaurant,
-      orderMode: 'dineIn',
-      date: {
-        $gte: new Date(todayDate + "T00:00:00.000Z"),
-        $lt: new Date(todayDate + "T23:59:59.999Z"),
-      },
-    },
-  },
-  {
-    $group: {
-      _id: null,
-      totalSales: { $sum: "$Amount" },
-    },
-  },
-])
-    
+      // Log the total number of dine-in orders and total sales for the current date
+      console.log(totalDineInOrders, totalDineInSales);
 
-console.log(totalDineInOrders,totalDineInSales);
+      // Calculate the total number of dine-in orders and total sales for the current date
+      const TotalOrdersInDinIn = totalDineInOrders.length > 0? totalDineInOrders[0].totalDineInOrders : 0;
+      const TotalSalesInDinIn = totalDineInSales.length > 0? totalDineInSales[0].totalSales : 0;
 
-const TotalSalesInDinIn = await totalDineInSales.length > 0 ? totalDineInSales[0].totalSales : 0;
-const TotalOrdersInDinIn = await totalDineInOrders.length > 0 ? totalDineInOrders[0].totalDineInOrders : 0;
-
-return res.status(200).json({success:true,message:"SuccessFully Fetched",TodayDineInOrdersPerDay:TotalOrdersInDinIn,TodaysSalesInDineIn:TotalSalesInDinIn})
-}
+      // Return a JSON response containing the total number of dine-in orders and total sales for the current date
+      return res.status(200).json({ success: true, message: "SuccessFully Fetched", TodayDineInOrdersPerDay: TotalOrdersInDinIn, TodaysSalesInDineIn: TotalSalesInDinIn });
+    }
   } catch (err) {
+    // If there is an error, log it and return an internal server error message
     console.log(err);
-    return  res.status(500).json({ success: false, message: "Internal Server Error" });
+    return res.status(500).json({ success: false, message: "Internal Server Error" });
   }
-}
+};
 
 exports.getOrderDataOfCap = async (req, res) => {
   try {
@@ -783,79 +795,21 @@ exports.getOrderDataOfCap = async (req, res) => {
 
 exports.getSalesDataOfCap = async (req, res) => {
   try {
+    // Check if the user is authenticated as a restaurant
     const isRestaurant = req.restaurant;
 
     if (isRestaurant) {
-
-
-
-
-      // const SalesAtCaptain = await Order.find({
-      //   orderMode: 'dineIn',
-      //   restaurantId: isRestaurant
-      // });
-      // console.log(SalesAtCaptain,"SalesAtCaptain");
-
-      // const SalesAtCaptain = await Order.aggregate([
-      //   {
-      //     $match: {
-      //       orderMode: "dineIn",
-      //       restaurantId:isRestaurant
-      //     },
-      //   },
-      //   {
-      //     $group: {
-      //       _id: {
-      //         capManagerId: "$capManagerId",
-      //         year: { $year: "$date" },
-      //         month: { $month: "$date" },
-      //         day: { $dayOfMonth: "$date" },
-      //       },
-      //       totalOrders: { $sum: 1 },
-      //       totalAmount: { $sum: "$Amount" },
-      //     },
-      //   },
-      //   {
-      //     $group: {
-      //       _id: "$_id.capManagerId",
-      //       salesData: {
-      //         $push: {
-      //           Date: {
-      //             $dateFromParts: {
-      //               year: "$_id.year",
-      //               month: "$_id.month",
-      //               day: "$_id.day",
-      //             },
-      //           },
-      //           TotalOrders: "$totalOrders",
-      //           TotalAmount: "$totalAmount",
-      //         },
-      //       },
-      //     },
-      //   },
-      //   {
-      //     $project: {
-      //       _id: 0,
-      //       capManagerId: "$_id",
-      //       salesData: 1,
-      //     },
-      //   },
-      //   {
-      //     $sort: {
-      //       date: -1,
-      //     },
-      //   },
-      // ]);
-
-
+      // Use the Order model to aggregate the sales data for dine-in orders in the restaurant
       const SalesAtCaptain = await Order.aggregate([
         {
+          // Match only dine-in orders for the restaurant
           $match: {
             orderMode: 'dineIn',
             restaurantId: isRestaurant,
           },
         },
         {
+          // Group the data by date and calculate the total sales and total orders for each date
           $group: {
             _id: {
               date: {
@@ -867,25 +821,27 @@ exports.getSalesDataOfCap = async (req, res) => {
           },
         },
         {
+          // Sort the data in descending order by date
           $sort: {
             "_id.date": -1,
           },
         },
       ]);
-      
-      
 
+      // Return the sales data as a JSON response
       return res.json({
         SalesAtCaptain,
         success: true,
       });
     } else {
+      // If the user is not authenticated as a restaurant, return an error message
       res.json({
         success: false,
         message: "Your session expired, Please login!",
       });
     }
   } catch (error) {
+    // If there is an error, log it and return an internal server error message
     console.log(error);
     res.status(500).json({ success: false, message: "Internal Server Error" });
   }

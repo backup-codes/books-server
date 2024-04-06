@@ -177,48 +177,69 @@ console.log(updatedTable,"updatedTable");
   }
 };
 
+
 exports.deleteTable = async (req, res) => {
   try {
+    // Extract restaurant from request
     const restaurant = req.restaurant;
+    
+    // Check if the request is from a restaurant
     if (restaurant) {
+      // Extract tableId from request body
       const { tableId } = req.body;
+      
+      // Find and delete the table based on its ID and associated restaurant
       const tableData = await Table.findOneAndDelete({
         _id: tableId,
         restaurant: restaurant,
       });
+      
+      // Send successful response with confirmation message
       res.status(200).json({
         success: true,
-        message: `Table ${tableData.tableName} is deleted!`,
+        message: `Table ${tableData.tableName} is deleted!`, // Include deleted table's name in message
       });
     } else {
+      // Send failure message if the request is not from a restaurant
       res.json({ success: false, message: "Session expired!" });
     }
   } catch (error) {
+    // Log any errors that occur during the process
     console.log(error);
   }
 };
 
 
+
+
 exports.captainList = async (req, res) => {
   try {
+    // Check if the request comes from a restaurant
     const isRestaurant = req.restaurant;
+    
+    // If it's from a restaurant
     if (isRestaurant) {
+      // Find captains associated with the restaurant
       const captains = await AccessedEmployees.find({
         restaurant: isRestaurant,
         accessFor: "Captain manager",
-      }).select("-password");
-      console.log(captains, "captains");
-
+      }).select("-password"); // Exclude password field from the result
+      
+      // Count total dine-in orders for the restaurant
       const TotalDineInOrders = await Order.countDocuments({
         orderMode: "dineIn",
-        billId: { $exists: true, $ne: null },
+        billId: { $exists: true, $ne: null }, // Check if billId exists and is not null
         restaurantId: isRestaurant,
       });
+      
+      // Send successful response with captains list and total dine-in orders
       res.status(200).json({ success: true, captains, TotalDineInOrders });
     } else {
+      // If request is not from a restaurant, send failure message
       res.json({ success: false, message: "Session expired!" });
     }
   } catch (error) {
+    // Log any errors that occur during the process
     console.log(error);
   }
 };
@@ -227,20 +248,23 @@ exports.captainList = async (req, res) => {
 
 exports.captainPassFilter = async (req, res) => {
   try {
+    // Extract restaurant from request
     const restaurant = req.restaurant;
 
+    // Check if the request is from a restaurant
     if (restaurant) {
+      // Extract start and end dates from request body
       const { start, end } = req.body;
 
-
-   const filteredData =await Order.aggregate([
+      // Aggregate orders based on specified criteria
+      const filteredData = await Order.aggregate([
         {
           $match: {
             orderMode: 'dineIn',
             restaurantId: restaurant,
             date: {
-              $gte: new Date(start),
-              $lte: new Date(end + 'T23:59:59.999Z'),
+              $gte: new Date(start), // Filter orders from start date
+              $lte: new Date(end + 'T23:59:59.999Z'), // Filter orders till end of end date
             },
           },
         },
@@ -248,25 +272,28 @@ exports.captainPassFilter = async (req, res) => {
           $group: {
             _id: {
               date: {
-                $dateToString: { format: "%d-%m-%Y", date: "$date" }
+                $dateToString: { format: "%d-%m-%Y", date: "$date" } // Group orders by formatted date
               },
             },
-            totalSales: { $sum: '$Amount' },
-            totalOrders: { $sum: 1 },
+            totalSales: { $sum: '$Amount' }, // Calculate total sales
+            totalOrders: { $sum: 1 }, // Count total orders
           },
         },
         {
-          $sort: { '_id.date': -1 }
+          $sort: { '_id.date': -1 } // Sort results by date in descending order
         }
-      ])
+      ]);
 
-      
+      // Send successful response with filtered data
       return res.json({ success: true, data: filteredData });
       
     } else {
+      // Send failure message if the request is not from a restaurant
       res.json({ success: false, message: "Session expired!" });
     }
   } catch (error) {
+    // Log any errors that occur during the process
     console.log(error);
   }
 };
+

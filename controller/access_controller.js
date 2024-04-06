@@ -190,61 +190,85 @@ exports.getStockOutDetails = async (req, res) => {
   }
 };
 
+
+
 exports.commodityStockOut = async (req, res) => {
   try {
     const restaurantId = req.restaurant;
     const { commodity, quantity, description } = req.body;
 
-    const response = await Stock.findOne({
+    // Find the stock entry for the given commodity and restaurant
+    const stock = await Stock.findOne({
       commodityName: commodity,
       restaurant: restaurantId,
     }).select("quantity");
 
-    if (response.quantity < quantity) {
-      return res.status(200).json({
+    // If no stock entry found, return 404 error
+    if (!stock) {
+      return res.status(404).json({
         success: false,
-        message: "Please enter quantity lesser or equal to current stock",
+        message: "Commodity not found in stock",
+      });
+    }
+
+    // Check if requested quantity exceeds current stock
+    if (stock.quantity < quantity) {
+      return res.status(400).json({
+        success: false,
+        message: "Requested quantity exceeds current stock",
+      });
+    }
+
+    // Calculate new stock balance after stock outward
+    const balance = stock.quantity - quantity;
+
+    // If there is enough stock to perform stock outward
+    if (balance >= 0) {
+      // Create new stock outward record
+      const newStockOutData = {
+        date: new Date(),
+        description: description,
+        commodity: commodity,
+        previousStock: stock.quantity,
+        stockOutward: quantity,
+        balanceStock: balance,
+        restaurant: new mongoose.Types.ObjectId(restaurantId),
+      };
+
+      const newStockOut = new StockOut(newStockOutData);
+
+      // Update stock quantity in the database
+      const updatedStock = await Stock.updateOne(
+        { commodityName: commodity, restaurant: restaurantId },
+        { $set: { quantity: balance } }
+      );
+
+      console.log(updatedStock, "updated stock");
+
+      // Save stock outward record to the database
+      await newStockOut.save();
+
+      // Return success response
+      return res.status(200).json({
+        success: true,
+        message: "Stock updated!",
       });
     } else {
-      const balance = response.quantity - quantity;
-
-      if (balance) {
-        const newStockOutData = {
-          date: new Date(),
-          description: description,
-          commodity: commodity,
-          previousStock: response.quantity,
-          stockOutward: quantity,
-          balanceStock: balance,
-          restaurant: new mongoose.Types.ObjectId(restaurantId),
-        };
-
-        const newStockOut = new StockOut(newStockOutData);
-
-        const updatedStock = await Stock.updateOne(
-          { commodityName: commodity, restaurant: restaurantId },
-          { $set: { quantity: balance } }
-        );
-        console.log(updatedStock, "updated stock");
-
-        newStockOut.save();
-        return res.status(200).json({
-          success: true,
-          message: "Stock updated!",
-        });
-      } else {
-        console.log("balance not found ", balance);
-        return res.status(200).json({
-          success: false,
-          message: "Balance not found",
-        });
-      }
+      // If there is insufficient stock balance, return error
+      console.log("Insufficient stock balance: ", balance);
+      return res.status(400).json({
+        success: false,
+        message: "Insufficient stock balance",
+      });
     }
   } catch (err) {
+    // Handle server errors
     console.log(err);
     return res.status(500).json({ message: "Server Error" });
   }
 };
+
+
 
 exports.getPassBookData = async (req, res) => {
   try {
@@ -1931,20 +1955,26 @@ exports.vendorDashboard = async (req, res) => {
   }
 };
 
+
 exports.StockDashboard = async (req, res) => {
   try {
+    // Extract restaurant ID from request
     const restaurantId = req.restaurant;
 
+    // Find stocks associated with the restaurant
     const stocks = await Stock.find({ restaurant: restaurantId });
 
-    return res
-      .status(200)
-      .json({ success: true, message: "Successfully fetched", stocks });
+    // Send successful response with fetched stocks
+    return res.status(200).json({ success: true, message: "Successfully fetched", stocks });
   } catch (err) {
+    // Log any errors that occur during the process
     console.log(err);
+    
+    // Send internal server error response in case of error
     res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
+
 
 exports.deleteEmploymentData = async (req, res) => {
   try {
