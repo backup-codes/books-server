@@ -355,16 +355,20 @@ exports.printBillAtCap = async (req, res) => {
     const isRestaurant = req.restaurant;
     const isCapManager = req.id;
     const orderData = req.body;
+    console.log("OderPOS", orderData);
     const tableId = orderData._id;
     const orderId = orderData.orderId;
     const isPosManager = req.posManagerId;
+
     if (isRestaurant && isCapManager) {
+
       // Check if the order with the given orderId already exists
       const existingOrder = await Order.findOne({ orderId });
 
       if (existingOrder) {
         // If the order exists, here updating it by pushing KotItems
         existingOrder.KotItems.push(...orderData.KotItems);
+        console.log("existing", existingOrder);
         existingOrder.Amount = existingOrder.KotItems.reduce(
           (total, item) => total + item.totalItemPrice,
           0
@@ -639,6 +643,7 @@ exports.getOrderedDataAtCap = async (req, res) => {
   try {
     const isRestaurant = req.restaurant;
     const isCaptain = req.id;
+    const isPosManager = req._id;
 
     const tableId = req.params.kotId;
     if (isRestaurant) {
@@ -657,6 +662,7 @@ exports.getOrderedDataAtCap = async (req, res) => {
             // $expr: { $gt: [{ $size: "$KotItems" }, 0] },
             kotStatus: true,
             orderId: { $exists: true, $ne: null },
+            POSManagerId: isPosManager,
           });
 
           console.log(orderedData, "orderedData");
