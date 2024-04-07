@@ -359,7 +359,9 @@ exports.printBillAtCap = async (req, res) => {
     const tableId = orderData._id;
     const orderId = orderData.orderId;
     const isPosManager = req.posManagerId;
-    if (isRestaurant && isCapManager && isPosManager) {
+
+    if (isRestaurant && isCapManager) {
+
       // Check if the order with the given orderId already exists
       const existingOrder = await Order.findOne({ orderId });
 

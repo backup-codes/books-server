@@ -1,6 +1,6 @@
 const Order = require("../model/order_model");
 const AccessedEmployees = require("../model/access_model");
-const moment = require("moment");
+const moment = require('moment');
 const { takeAwayData } = require("./pos_controller");
 
 exports.getOnlineData = async (req, res) => {
@@ -95,35 +95,74 @@ exports.getSalesDashboardData = async (req, res) => {
     const { start, end } = req.query;
     if (restaurant) {
       // to return total sales per day
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Set the time to the beginning of the day
+      
+      // Calculate the start and end of the last hour
+      // const lastHourStart = new Date(today);
+       // Set the time to the start of the last hour
+      // const lastHourEnd = new Date(today);
+      
       const totalSalesPerDay = await Order.aggregate([
         {
           $match: {
             restaurantId: restaurant,
+            date: { $gte: today } // Filter orders for today and onwards
           },
         },
         {
           $group: {
-            _id: {
-              startDate: {
-                $dateToString: { format: "%Y-%m-%d", date: new Date(start) },
-              },
-              endDate: {
-                $dateToString: { format: "%Y-%m-%d", date: new Date(end) },
-              },
-            },
+            _id: null,
             totalAmount: { $sum: "$Amount" },
           },
         },
-        {
-          $project: {
-            _id: 0,
-            startDate: "$_id.startDate",
-            endDate: "$_id.endDate",
-            totalAmount: 1,
-          },
-        },
       ]);
+      
+      const todaySalesAmount = totalSalesPerDay.length > 0 ? totalSalesPerDay[0].totalAmount : 0;
+      
+      const now = new Date();
+const lastHourStart = new Date(now);
+lastHourStart.setMinutes(0, 0, 0); // Set minutes and seconds to 0 to start from the beginning of the hour
+lastHourStart.setHours(now.getHours() - 1); // Set the hour to the hour before the current hour
 
+const lastHourEnd = new Date(lastHourStart); // Make a copy of lastHourStart
+lastHourEnd.setMinutes(59, 59, 999); // Set minutes, seconds, and milliseconds to end of the hour
+
+// Perform the aggregation query for hourly sales amount
+const hourlySalesAmount = await Order.aggregate([
+  {
+    $match: {
+      restaurantId: restaurant,
+      date: {
+        $gte: lastHourStart,
+        $lte: lastHourEnd // Use $lte to include the last hour
+      }
+    }
+  },
+  {
+    $group: {
+      _id: null,
+      totalAmount: { $sum: "$Amount" }
+    }
+  }
+]);
+
+const totalSalesAmountForLastHour = hourlySalesAmount.length > 0 ? hourlySalesAmount[0].totalAmount : 0;
+console.log("Total sales amount for the last hour:", totalSalesAmountForLastHour);
+
+      
+
+      
+
+
+      
+      
+      
+      // Now you have hourly sales amounts for each hour, you can further process or display them as needed
+      
+      
+      
+      
       const startDate = new Date(start);
       const endDate = new Date(end);
 
@@ -149,29 +188,42 @@ exports.getSalesDashboardData = async (req, res) => {
         return res.json({ success: true, totalSalesPerDay: {} });
       }
 
-      const HighestBillingAmountPerHr = await Order.aggregate([
+   
+
+      // Get today's start and end time
+      const currentHour = moment().hour();
+      const startOfToday = moment().startOf('day');
+      const startOfCurrentHour = moment().startOf('hour');
+      const endOfCurrentHour = moment().endOf('hour');
+      
+      const HighestBillingAmountForCurrentHour = await Order.aggregate([
         {
           $match: {
             billId: { $exists: true },
             restaurantId: restaurant,
-          },
+            date: {
+              $gte: startOfToday.toDate(),
+              $lt: endOfCurrentHour.toDate() // End of the current hour
+            }
+          }
         },
         {
           $group: {
-            _id: {
-              hour: { $hour: { date: "$date", timezone: "UTC" } },
-            },
-            maxAmount: { $max: "$Amount" },
-          },
-        },
-        {
-          $sort: { "_id.hour": 1 },
-        },
+            _id: null,
+            maxAmount: { $max: "$Amount" }
+          }
+        }
       ]);
+      
+      const maxAmountForCurrentHour = HighestBillingAmountForCurrentHour.length > 0 ? HighestBillingAmountForCurrentHour[0].maxAmount : 0;
+      
+      console.log("Max billing amount for the current hour:", maxAmountForCurrentHour);
+      
 
-      const maxAmount = Math.max(
-        ...HighestBillingAmountPerHr.map((entry) => entry.maxAmount)
-      );
+      
+
+      
+      
 
       const averageBillingAmountPerDay = await Order.aggregate([
         {
@@ -203,7 +255,7 @@ exports.getSalesDashboardData = async (req, res) => {
         },
       ]);
 
-      const now = new Date();
+      // const now = new Date();
       const oneHourAgo = new Date(now);
       oneHourAgo.setHours(now.getHours() - 1);
 
@@ -223,29 +275,6 @@ exports.getSalesDashboardData = async (req, res) => {
           },
         },
       ]);
-
-      // const TakeAwayPerHour = await Order.aggregate([
-      //   // take away data
-      //   {
-      //     $match: {
-      //       orderMode: "takeaway",
-      //       billId: { $exists: true, $ne: "" },
-      //       date: { $gte: oneHourAgo, $lt: now },
-      //     },
-      //   },
-      //   {
-      //     $group: {
-      //       _id: null,
-      //       totalCount: { $sum: 1 },
-      //     },
-      //   },
-      //   {
-      //     $project: {
-      //       _id: 0,
-      //       totalCount: 1,
-      //     },
-      //   },
-      // ]);
 
 
       const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0); // Set the start of the day to 00:00:00
@@ -277,28 +306,6 @@ const TakeAwayTotalAmount = await Order.aggregate([
       const totalTakeAwayTotalAmount =
       TakeAwayTotalAmount.length > 0 ? TakeAwayTotalAmount[0].totalAmount : 0;
 
-      // const DineInPerHour = await Order.aggregate([
-      //   // dining data
-      //   {
-      //     $match: {
-      //       orderMode: "dineIn",
-      //       billId: { $exists: true, $ne: "" },
-      //       date: { $gte: oneHourAgo, $lt: now },
-      //     },
-      //   },
-      //   {
-      //     $group: {
-      //       _id: null,
-      //       totalCount: { $sum: 1 },
-      //     },
-      //   },
-      //   {
-      //     $project: {
-      //       _id: 0,
-      //       totalCount: 1,
-      //     },
-      //   },
-      // ]);
 
 
 const DineInPerDay = await Order.aggregate([
@@ -357,12 +364,15 @@ const DineInPerDay = await Order.aggregate([
         TotalSalesPerDay: totalSalesPerDay[0],
         Yesterdays,
         averageBillingAmountPerDay: averageBillingAmountPerDay[0],
-        HighestBillingAmountPerHr: maxAmount,
+        HighestBillingAmountPerHr: maxAmountForCurrentHour,
         OnlineAggregatesPerHour: OnlineAggregatesPerHour,
         totalTakeAwayTotalAmount: totalTakeAwayTotalAmount,
         totalDineInPerDay: totalDineInPerDay,
-        TotalOnlineSales:TotalOnlineSales
+        TotalOnlineSales:TotalOnlineSales,
+        hourlySalesAmount: totalSalesAmountForLastHour
+
       });
+
     } else {
       res.json({ success: false, message: "Session expired!" });
     }
